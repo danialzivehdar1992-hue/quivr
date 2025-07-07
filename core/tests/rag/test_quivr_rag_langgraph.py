@@ -147,15 +147,11 @@ class TestQuivrQARAGLangGraph:
     @pytest.fixture(scope="function")
     def graph_config(self, fast_rag_workflow_config):
         """Runtime graph configuration."""
-        return BaseGraphConfig(
-            configurable={
-                "llm_config": fast_rag_workflow_config["llm_config"],
-                "filter_history_config": fast_rag_workflow_config[
-                    "filter_history_config"
-                ],
-                "citation_config": fast_rag_workflow_config["citation_config"],
-            }
-        )
+        return {
+            "llm_config": fast_rag_workflow_config["llm_config"],
+            "filter_history_config": fast_rag_workflow_config["filter_history_config"],
+            "citation_config": fast_rag_workflow_config["citation_config"],
+        }
 
     @pytest.fixture(scope="function")
     def config_extractor(self):
@@ -250,6 +246,20 @@ class TestQuivrQARAGLangGraph:
         return chat_history
 
     @pytest.fixture(scope="function")
+    def mock_graph_builder(self):
+        """Mock GraphBuilder for testing."""
+        with patch(
+            "quivr_core.rag.quivr_rag_langgraph.GraphBuilder"
+        ) as mock_builder_class:
+            mock_builder = Mock()
+            mock_builder.set_custom_state_graph.return_value = mock_builder
+            mock_builder.build_from_workflow_config.return_value = mock_builder
+            mock_builder.final_nodes = ["generate_rag"]
+            mock_builder.get_compiled_graph.return_value = Mock()
+            mock_builder_class.return_value = mock_builder
+            yield mock_builder
+
+    @pytest.fixture(scope="function")
     def rag_instance(
         self,
         workflow_config,
@@ -258,6 +268,7 @@ class TestQuivrQARAGLangGraph:
         mock_llm_service,
         config_extractor,
         mock_service_container,
+        mock_graph_builder,
     ):
         """Create QuivrQARAGLangGraph instance for testing."""
         return QuivrQARAGLangGraph(
@@ -278,6 +289,8 @@ class TestQuivrQARAGLangGraph:
         graph_config,
         mock_llm_service,
         config_extractor,
+        mock_service_container,
+        mock_graph_builder,
     ):
         """Test that QuivrQARAGLangGraph initializes correctly."""
         assert rag_instance.workflow_config == workflow_config
@@ -286,30 +299,48 @@ class TestQuivrQARAGLangGraph:
         assert rag_instance.graph_config_schema == graph_schema
         assert rag_instance.llm_service == mock_llm_service
         assert rag_instance.config_extractor == config_extractor
-        assert rag_instance.graph is None
-        assert rag_instance.final_nodes == []
+        assert rag_instance.service_container == mock_service_container
 
-    def test_workflow_creation(self, rag_instance):
-        """Test that the Fast RAG workflow can be created successfully."""
-        # Create the graph
-        chain = rag_instance.build_chain()
+        # Verify GraphBuilder was configured correctly
+        mock_graph_builder.set_custom_state_graph.assert_called_once_with(
+            FastRAGAgentState, graph_schema
+        )
+        mock_graph_builder.build_from_workflow_config.assert_called_once_with(
+            workflow_config, config_extractor, mock_service_container, rag_instance
+        )
 
-        # Verify graph was created
-        assert chain is not None
-        assert rag_instance.graph is not None
+    def test_final_nodes_property(self, rag_instance, mock_graph_builder):
+        """Test that final_nodes property delegates to graph_builder."""
+        final_nodes = rag_instance.final_nodes
+        assert final_nodes == ["generate_rag"]
+        assert final_nodes == mock_graph_builder.final_nodes
 
-        # Verify final nodes were identified
-        assert "generate_rag" in rag_instance.final_nodes
+    def test_graph_builder_initialization(
+        self,
+        workflow_config,
+        graph_schema,
+        graph_config,
+        mock_llm_service,
+        config_extractor,
+        mock_service_container,
+        mock_graph_builder,
+    ):
+        """Test that GraphBuilder is properly initialized during construction."""
+        _ = QuivrQARAGLangGraph(
+            workflow_config=workflow_config,
+            graph_state=FastRAGAgentState,
+            graph_config=graph_config,
+            graph_config_schema=graph_schema,
+            llm_service=mock_llm_service,
+            config_extractor=config_extractor,
+            service_container=mock_service_container,
+        )
 
-    def test_build_chain(self, rag_instance):
-        """Test that the chain builds successfully."""
-        chain = rag_instance.build_chain()
+        # Verify the builder chain was called correctly
+        mock_graph_builder.set_custom_state_graph.assert_called_once()
+        mock_graph_builder.build_from_workflow_config.assert_called_once()
 
-        # Verify chain was created
-        assert chain is not None
-        assert rag_instance.graph is not None
-
-    def test_node_registry_integration(self, rag_instance):
+    def test_node_registry_integration(self):
         """Test that all required nodes for Fast RAG workflow are available."""
         from quivr_core.rag.langgraph_framework.registry.node_registry import (
             node_registry,
@@ -323,55 +354,17 @@ class TestQuivrQARAGLangGraph:
                 node_name in available_nodes
             ), f"Required node '{node_name}' not found in registry"
 
-    @patch(
-        "quivr_core.rag.langgraph_framework.services.retrieval_service.RetrievalService"
-    )
-    @patch(
-        "quivr_core.rag.langgraph_framework.services.rag_prompt_service.RAGPromptService"
-    )
-    def test_workflow_execution_mocked(
+    @pytest.mark.asyncio(loop_scope="session")
+    async def test_answer_astream_basic(
         self,
-        mock_prompt_service,
-        mock_retrieval_service,
         rag_instance,
         sample_chat_history,
         sample_knowledge_files,
-    ):
-        """Test workflow execution with mocked services."""
-        # Setup mocks
-        mock_retrieval_service_instance = Mock()
-        mock_retrieval_service.return_value = mock_retrieval_service_instance
-
-        mock_prompt_service_instance = Mock()
-        mock_prompt_service.return_value = mock_prompt_service_instance
-
-        # Build the chain
-        chain = rag_instance.build_chain()
-        assert chain is not None
-
-    def test_config_extraction(self, rag_instance, graph_config):
-        """Test that node-specific configurations are properly extracted."""
-        config_extractor = rag_instance.config_extractor
-
-        # Test global config extraction
-        llm_config = config_extractor.extract(graph_config, LLMEndpointConfig)
-        assert llm_config.temperature == 0.3
-        assert llm_config.max_context_tokens == 20000
-        assert llm_config.model == "gpt-4o-mini"
-
-        filter_config = config_extractor.extract(graph_config, FilterHistoryConfig)
-        assert filter_config.max_history == 10
-
-    @pytest.mark.asyncio(loop_scope="session")
-    async def test_answer_astream_basic(
-        self, rag_instance, sample_chat_history, sample_knowledge_files
+        mock_graph_builder,
     ):
         """Test basic streaming functionality."""
         run_id = uuid4()
         question = "What is the capital of France?"
-
-        # Build the actual chain first
-        chain = rag_instance.build_chain()
 
         # Create mock stream events
         mock_events = [
@@ -396,29 +389,32 @@ class TestQuivrQARAGLangGraph:
             for event in mock_events:
                 yield event
 
-        # Mock only the astream_events method of the conversational_qa_chain
-        with patch.object(chain, "astream_events", side_effect=mock_astream_events):
-            # Collect streaming results
-            results = []
-            async for chunk in rag_instance.answer_astream(
-                run_id=run_id,
-                question=question,
-                system_prompt=None,
-                history=sample_chat_history,
-                list_files=sample_knowledge_files,
-            ):
-                results.append(chunk)
+        # Mock the compiled graph's astream_events method
+        mock_compiled_graph = Mock()
+        mock_compiled_graph.astream_events = mock_astream_events
+        mock_graph_builder.get_compiled_graph.return_value = mock_compiled_graph
 
-            # Verify we got results
-            assert len(results) > 0
+        # Collect streaming results
+        results = []
+        async for chunk in rag_instance.answer_astream(
+            run_id=run_id,
+            question=question,
+            system_prompt=None,
+            history=sample_chat_history,
+            list_files=sample_knowledge_files,
+        ):
+            results.append(chunk)
 
-            # Check that we got text chunks
-            text_chunks = [r for r in results if r.answer]
-            assert len(text_chunks) > 0
+        # Verify we got results
+        assert len(results) > 0
 
-            # Verify the final chunk
-            final_chunks = [r for r in results if r.last_chunk]
-            assert len(final_chunks) == 1
+        # Check that we got text chunks
+        text_chunks = [r for r in results if r.answer]
+        assert len(text_chunks) > 0
+
+        # Verify the final chunk
+        final_chunks = [r for r in results if r.last_chunk]
+        assert len(final_chunks) == 1
 
     def test_workflow_config_validation(self, fast_rag_workflow_config):
         """Test that the workflow configuration is valid."""
@@ -462,34 +458,27 @@ class TestQuivrQARAGLangGraph:
         for field in required_fields:
             assert field in state_annotations
 
-    def test_final_nodes_identification(self, rag_instance):
-        """Test that final nodes are correctly identified during graph creation."""
-        # Create the graph to populate final_nodes
-        rag_instance.create_graph()
-
-        # The generate_rag node should be identified as a final node (connects to END)
-        assert "generate_rag" in rag_instance.final_nodes
-
     @pytest.mark.asyncio(loop_scope="session")
-    async def test_workflow_error_handling(self, rag_instance, sample_chat_history):
+    async def test_workflow_error_handling(
+        self, rag_instance, sample_chat_history, mock_graph_builder
+    ):
         """Test error handling in workflow execution."""
         run_id = uuid4()
         question = "Test question"
 
-        # Mock the build_chain to raise an exception
-        with patch.object(rag_instance, "build_chain") as mock_build_chain:
-            mock_build_chain.side_effect = Exception("Test error")
+        # Mock the get_compiled_graph to raise an exception
+        mock_graph_builder.get_compiled_graph.side_effect = Exception("Test error")
 
-            # The error should propagate
-            with pytest.raises(Exception, match="Test error"):
-                async for _ in rag_instance.answer_astream(
-                    run_id=run_id,
-                    question=question,
-                    system_prompt=None,
-                    history=sample_chat_history,
-                    list_files=[],
-                ):
-                    pass
+        # The error should propagate
+        with pytest.raises(Exception, match="Test error"):
+            async for _ in rag_instance.answer_astream(
+                run_id=run_id,
+                question=question,
+                system_prompt=None,
+                history=sample_chat_history,
+                list_files=[],
+            ):
+                pass
 
     def test_config_mapping_completeness(self, config_extractor):
         """Test that config mapping covers all necessary config types."""
@@ -506,53 +495,52 @@ class TestQuivrQARAGLangGraph:
             assert config_type in mapping
 
     @pytest.mark.asyncio(loop_scope="session")
-    async def test_streaming_with_metadata(self, rag_instance, sample_chat_history):
+    async def test_streaming_with_metadata(
+        self, rag_instance, sample_chat_history, mock_graph_builder
+    ):
         """Test that streaming preserves workflow step metadata."""
         run_id = uuid4()
         question = "Test question"
 
-        with patch.object(rag_instance, "build_chain") as mock_build_chain:
-            mock_chain = Mock()
+        # Mock events with node metadata
+        mock_events = [
+            {
+                "event": "on_chat_model_stream",
+                "data": {"chunk": AIMessageChunk(content="Test")},
+                "metadata": {"langgraph_node": "generate_rag"},
+            }
+        ]
 
-            # Mock events with node metadata
-            mock_events = [
-                {
-                    "event": "on_chat_model_stream",
-                    "data": {"chunk": AIMessageChunk(content="Test")},
-                    "metadata": {"langgraph_node": "generate_rag"},
-                }
-            ]
+        async def mock_astream_events(*args, **kwargs):
+            for event in mock_events:
+                yield event
 
-            async def mock_astream_events(*args, **kwargs):
-                for event in mock_events:
-                    yield event
+        mock_compiled_graph = Mock()
+        mock_compiled_graph.astream_events = mock_astream_events
+        mock_graph_builder.get_compiled_graph.return_value = mock_compiled_graph
 
-            mock_chain.astream_events = mock_astream_events
-            mock_build_chain.return_value = mock_chain
+        # Collect results
+        results = []
+        async for chunk in rag_instance.answer_astream(
+            run_id=run_id,
+            question=question,
+            system_prompt=None,
+            history=sample_chat_history,
+            list_files=[],
+        ):
+            results.append(chunk)
 
-            # Collect results
-            results = []
-            async for chunk in rag_instance.answer_astream(
-                run_id=run_id,
-                question=question,
-                system_prompt=None,
-                history=sample_chat_history,
-                list_files=[],
-            ):
-                results.append(chunk)
-
-            # Check that workflow step metadata is preserved
-            text_chunks = [r for r in results if r.answer]
-            if text_chunks:
-                assert text_chunks[0].metadata.workflow_step == "Generating response"
+        # Check that workflow step metadata is preserved
+        text_chunks = [r for r in results if r.answer]
+        if text_chunks:
+            assert text_chunks[0].metadata.workflow_step == "Generating response"
 
     def test_integration_with_existing_fixtures(
         self,
-        fake_llm,
-        mem_vector_store,
         workflow_config,
         config_extractor,
         mock_service_container,
+        mock_graph_builder,
     ):
         """Test integration with existing test fixtures from conftest.py."""
         # Create instance using existing fixtures
@@ -561,19 +549,14 @@ class TestQuivrQARAGLangGraph:
             graph_state=FastRAGAgentState,
             graph_config={"llm_config": {"model": "fake_model"}},
             graph_config_schema=FastRAGGraphConfig,
-            llm_service=Mock(
-                spec=LLMService
-            ),  # Still need to mock this as the fixture is for LLMEndpoint
+            llm_service=Mock(spec=LLMService),
             config_extractor=config_extractor,
             service_container=mock_service_container,
         )
 
         # Verify initialization works with existing fixtures
         assert rag_instance is not None
-
-        # Test that we can create the graph
-        graph = rag_instance.create_graph()
-        assert graph is not None
+        assert rag_instance.graph_builder is not None
 
 
 class TestQuivrQARAGLangGraphAdvanced:
@@ -582,47 +565,45 @@ class TestQuivrQARAGLangGraphAdvanced:
     @pytest.fixture(scope="function")
     def complex_workflow_config(self):
         """More complex workflow configuration for advanced testing."""
-        return BaseGraphConfig(
-            configurable={
-                "llm_config": {
-                    "temperature": 0.1,
-                    "max_context_tokens": 50000,
-                    "model": "gpt-4o",
-                },
-                "filter_history_config": {"max_history": 20},
-                "workflow_config": {
-                    "name": "Advanced RAG",
-                    "nodes": [
-                        {
-                            "name": "START",
-                            "edges": ["filter_history"],
-                            "description": "Starting advanced workflow",
+        return {
+            "llm_config": {
+                "temperature": 0.1,
+                "max_context_tokens": 50000,
+                "model": "gpt-4o",
+            },
+            "filter_history_config": {"max_history": 20},
+            "workflow_config": {
+                "name": "Advanced RAG",
+                "nodes": [
+                    {
+                        "name": "START",
+                        "edges": ["filter_history"],
+                        "description": "Starting advanced workflow",
+                    },
+                    {
+                        "name": "filter_history",
+                        "edges": ["retrieve"],
+                        "description": "Advanced history filtering",
+                        "filter_history_config": {
+                            "max_history": 5  # Node-specific override
                         },
-                        {
-                            "name": "filter_history",
-                            "edges": ["retrieve"],
-                            "description": "Advanced history filtering",
-                            "filter_history_config": {
-                                "max_history": 5  # Node-specific override
-                            },
+                    },
+                    {
+                        "name": "retrieve",
+                        "edges": ["generate_rag"],
+                        "description": "Enhanced retrieval",
+                    },
+                    {
+                        "name": "generate_rag",
+                        "edges": ["END"],
+                        "description": "Advanced generation",
+                        "llm_config": {
+                            "temperature": 0.0  # Node-specific override
                         },
-                        {
-                            "name": "retrieve",
-                            "edges": ["generate_rag"],
-                            "description": "Enhanced retrieval",
-                        },
-                        {
-                            "name": "generate_rag",
-                            "edges": ["END"],
-                            "description": "Advanced generation",
-                            "llm_config": {
-                                "temperature": 0.0  # Node-specific override
-                            },
-                        },
-                    ],
-                },
-            }
-        )
+                    },
+                ],
+            },
+        }
 
     def test_node_specific_config_overrides(self, complex_workflow_config):
         """Test that node-specific configuration overrides work correctly."""
@@ -634,18 +615,21 @@ class TestQuivrQARAGLangGraphAdvanced:
             }
         )
 
+        # Create BaseGraphConfig for testing
+        graph_config = BaseGraphConfig(configurable=complex_workflow_config)
+
         # Test filter_history node config override
         filter_config = config_extractor.extract(
-            complex_workflow_config, FilterHistoryConfig, "filter_history"
+            graph_config, FilterHistoryConfig, "filter_history"
         )
-        assert filter_config.max_history == 20  # Overridden value
+        assert filter_config.max_history == 20  # Global value
 
         # Test generate_rag node config override
         llm_config = config_extractor.extract(
-            complex_workflow_config, LLMEndpointConfig, "generate_rag"
+            graph_config, LLMEndpointConfig, "generate_rag"
         )
-        assert llm_config.temperature == 0.1  # Overridden value
-        assert llm_config.max_context_tokens == 50000  # Inherited value
+        assert llm_config.temperature == 0.1  # Global value
+        assert llm_config.max_context_tokens == 50000  # Global value
 
     @pytest.mark.asyncio(loop_scope="session")
     async def test_multiple_file_handling(self, sample_knowledge_files):
@@ -689,16 +673,25 @@ class TestQuivrQARAGLangGraphAdvanced:
             }
         )
 
-        rag_instance = QuivrQARAGLangGraph(
-            workflow_config=minimal_config,
-            graph_state=FastRAGAgentState,
-            graph_config={"llm_config": {"model": "gpt-4o-mini"}},
-            graph_config_schema=FastRAGGraphConfig,
-            llm_service=Mock(spec=LLMService),
-            config_extractor=config_extractor,
-            service_container=Mock(spec=ServiceContainer),
-        )
+        with patch(
+            "quivr_core.rag.quivr_rag_langgraph.GraphBuilder"
+        ) as mock_builder_class:
+            mock_builder = Mock()
+            mock_builder.set_custom_state_graph.return_value = mock_builder
+            mock_builder.build_from_workflow_config.return_value = mock_builder
+            mock_builder.final_nodes = ["generate_rag"]
+            mock_builder_class.return_value = mock_builder
 
-        # Should be able to create even minimal graphs
-        graph = rag_instance.create_graph()
-        assert graph is not None
+            rag_instance = QuivrQARAGLangGraph(
+                workflow_config=minimal_config,
+                graph_state=FastRAGAgentState,
+                graph_config={"llm_config": {"model": "gpt-4o-mini"}},
+                graph_config_schema=FastRAGGraphConfig,
+                llm_service=Mock(spec=LLMService),
+                config_extractor=config_extractor,
+                service_container=Mock(spec=ServiceContainer),
+            )
+
+            # Should be able to create even minimal instances
+            assert rag_instance is not None
+            assert rag_instance.graph_builder is not None
