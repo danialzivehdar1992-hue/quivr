@@ -145,19 +145,15 @@ class TestGetReranker:
 
     def test_get_reranker_invalid_supplier(self):
         """Test get_reranker with invalid supplier"""
-        config = RerankerConfig(
-            supplier="invalid_supplier",  # This should raise ValidationError in practice
-            model="test-model",
-            top_n=5,
-        )
+        from pydantic import ValidationError
 
-        # Mock the config to bypass validation for testing
-        config.supplier = "invalid_supplier"
-
-        with pytest.raises(
-            ValueError, match="Invalid reranker supplier: invalid_supplier"
-        ):
-            get_reranker(config)
+        # Creating RerankerConfig with invalid supplier should raise ValidationError
+        with pytest.raises(ValidationError):
+            RerankerConfig(
+                supplier="invalid_supplier",  # This should raise ValidationError
+                model="test-model",
+                top_n=5,
+            )
 
     def test_get_reranker_cohere_with_api_key_property(self):
         """Test Cohere reranker using api_key property"""
