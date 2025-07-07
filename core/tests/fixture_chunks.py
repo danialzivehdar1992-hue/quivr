@@ -8,7 +8,7 @@ from langchain_core.vectorstores import InMemoryVectorStore
 from quivr_core.rag.entities.chat import ChatHistory
 from quivr_core.rag.entities.config import LLMEndpointConfig, RetrievalConfig
 from quivr_core.llm import LLMEndpoint
-from quivr_core.rag.quivr_rag_langgraph import QuivrQARAGLangGraph
+from quivr_core.rag.__quivr_rag_langgraph import QuivrQARAGLangGraph
 
 
 async def main():

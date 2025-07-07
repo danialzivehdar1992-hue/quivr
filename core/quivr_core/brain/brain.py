@@ -21,7 +21,7 @@ from quivr_core.rag.langgraph_framework.services.llm_service import LLMService
 from quivr_core.rag.langgraph_framework.services.service_container import (
     ServiceContainer,
 )
-from quivr_core.rag.quivr_rag_langgraph_refactored import QuivrQARAGLangGraphRefactored
+from quivr_core.rag.quivr_rag_langgraph import QuivrQARAGLangGraph
 from rich.console import Console
 from rich.panel import Panel
 
@@ -557,7 +557,7 @@ class Brain:
             }
         )
 
-        rag_instance = QuivrQARAGLangGraphRefactored(
+        rag_instance = QuivrQARAGLangGraph(
             workflow_config=workflow_config,
             graph_state=AgentState,
             graph_config=retrieval_config.model_dump(),

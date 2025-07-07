@@ -16,7 +16,7 @@ from quivr_core.rag.entities.retriever import RetrieverConfig
 from quivr_core.rag.entities.reranker import RerankerConfig
 from typing import Dict, Any, Annotated, Sequence, List, Optional, TypedDict
 from quivr_core.rag.entities.prompt import PromptConfig
-from quivr_core.rag.quivr_rag_langgraph_refactored import QuivrQARAGLangGraphRefactored
+from quivr_core.rag.quivr_rag_langgraph import QuivrQARAGLangGraph
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 from quivr_core.rag.entities.chat import ChatHistory
@@ -100,14 +100,14 @@ async def main():
     graph_schema = GeneralConfig
     graph_config = {"llm_config": {"model": "gpt-4o-mini"}}
 
-    # Create QuivrQARAGLangGraphRefactored instance
+    # Create QuivrQARAGLangGraph instance
     logger.info("Creating Quivr RAG LangGraph Refactor instance")
 
     # Get LLM service from container for backward compatibility
     llm_config = LLMEndpointConfig()
     llm_service = service_container.get_service(LLMService, llm_config)
 
-    quivr_rag_langgraph = QuivrQARAGLangGraphRefactored(
+    quivr_rag_langgraph = QuivrQARAGLangGraph(
         workflow_config=workflow_config,
         graph_state=AgentState,
         graph_config=graph_config,

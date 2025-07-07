@@ -1,5 +1,5 @@
 """
-End-to-end tests for QuivrQARAGLangGraphRefactored class.
+End-to-end tests for QuivrQARAGLangGraph class.
 Tests the Fast RAG workflow and other configurations.
 """
 
@@ -33,7 +33,7 @@ from quivr_core.rag.langgraph_framework.services.service_container import (
 )
 from quivr_core.rag.langgraph_framework.base.extractors import ConfigMapping
 from quivr_core.rag.langgraph_framework.task import UserTasks
-from quivr_core.rag.quivr_rag_langgraph_refactored import QuivrQARAGLangGraphRefactored
+from quivr_core.rag.quivr_rag_langgraph import QuivrQARAGLangGraph
 
 # Ensure node registration
 
@@ -88,8 +88,8 @@ def sample_knowledge_files():
     ]
 
 
-class TestQuivrQARAGLangGraphRefactored:
-    """End-to-end tests for QuivrQARAGLangGraphRefactored with Fast RAG workflow."""
+class TestQuivrQARAGLangGraph:
+    """End-to-end tests for QuivrQARAGLangGraph with Fast RAG workflow."""
 
     @pytest.fixture(scope="function")
     def fast_rag_workflow_config(self):
@@ -259,8 +259,8 @@ class TestQuivrQARAGLangGraphRefactored:
         config_extractor,
         mock_service_container,
     ):
-        """Create QuivrQARAGLangGraphRefactored instance for testing."""
-        return QuivrQARAGLangGraphRefactored(
+        """Create QuivrQARAGLangGraph instance for testing."""
+        return QuivrQARAGLangGraph(
             workflow_config=workflow_config,
             graph_state=FastRAGAgentState,
             graph_config=graph_config,
@@ -279,7 +279,7 @@ class TestQuivrQARAGLangGraphRefactored:
         mock_llm_service,
         config_extractor,
     ):
-        """Test that QuivrQARAGLangGraphRefactored initializes correctly."""
+        """Test that QuivrQARAGLangGraph initializes correctly."""
         assert rag_instance.workflow_config == workflow_config
         assert rag_instance.graph_state == FastRAGAgentState
         assert rag_instance.graph_config == graph_config
@@ -556,7 +556,7 @@ class TestQuivrQARAGLangGraphRefactored:
     ):
         """Test integration with existing test fixtures from conftest.py."""
         # Create instance using existing fixtures
-        rag_instance = QuivrQARAGLangGraphRefactored(
+        rag_instance = QuivrQARAGLangGraph(
             workflow_config=workflow_config,
             graph_state=FastRAGAgentState,
             graph_config={"llm_config": {"model": "fake_model"}},
@@ -576,7 +576,7 @@ class TestQuivrQARAGLangGraphRefactored:
         assert graph is not None
 
 
-class TestQuivrQARAGLangGraphRefactoredAdvanced:
+class TestQuivrQARAGLangGraphAdvanced:
     """Advanced tests for complex scenarios and edge cases."""
 
     @pytest.fixture(scope="function")
@@ -689,7 +689,7 @@ class TestQuivrQARAGLangGraphRefactoredAdvanced:
             }
         )
 
-        rag_instance = QuivrQARAGLangGraphRefactored(
+        rag_instance = QuivrQARAGLangGraph(
             workflow_config=minimal_config,
             graph_state=FastRAGAgentState,
             graph_config={"llm_config": {"model": "gpt-4o-mini"}},
