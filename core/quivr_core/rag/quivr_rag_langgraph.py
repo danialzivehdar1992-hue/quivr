@@ -14,12 +14,10 @@ from quivr_core.rag.entities.models import (
 )
 from quivr_core.rag.entities.config import (
     WorkflowConfig,
-    NodeConfig,
 )
 
 import quivr_core.rag.langgraph_framework.nodes as _  # noqa: F401
 
-from langgraph.graph import END, START
 from quivr_core.rag.langgraph_framework.graph_builder import GraphBuilder
 from quivr_core.rag.langgraph_framework.registry.node_registry import node_registry
 from quivr_core.rag.langgraph_framework.services.service_container import (
@@ -62,100 +60,20 @@ class QuivrQARAGLangGraph:
         self.llm_service = llm_service
         self.config_extractor = config_extractor
         self.service_container = service_container
-        self.graph = None
-        self.final_nodes: list[str] = []
 
-        # Initialize GraphBuilder with custom state and config
-        self.graph_builder = GraphBuilder(registry=node_registry)
-        # Override the default graph with our custom state and config schema
-        self.graph_builder.graph = self._create_custom_state_graph()
-
-    def _create_custom_state_graph(self):
-        """Create StateGraph with custom state and config schema."""
-        from langgraph.graph import StateGraph
-
-        return StateGraph(self.graph_state, config_schema=self.graph_config_schema)
-
-    def _build_workflow_with_builder(self):
-        """Build workflow using GraphBuilder with registered nodes."""
-        # No need for auto-discovery - nodes are imported via __init__.py
-        # Just log what's available
-        available_nodes = node_registry.list_nodes()
-        logger.info(f"Available nodes: {available_nodes}")
-
-        if not available_nodes:
-            raise RuntimeError(
-                "No nodes found in registry. Make sure to import "
-                "quivr_core.rag.langgraph_framework.nodes before using this class."
+        # Initialize GraphBuilder and build the workflow
+        self.graph_builder = (
+            GraphBuilder(registry=node_registry)
+            .set_custom_state_graph(self.graph_state, self.graph_config_schema)
+            .build_from_workflow_config(
+                workflow_config, config_extractor, service_container, self
             )
+        )
 
-        # Add all nodes from the workflow config using the registry
-        for node in self.workflow_config.nodes:
-            if node.name not in [START, END]:
-                # Create node instance using the registry by node name
-                try:
-                    node_instance = node_registry.create_node(
-                        node.name,
-                        config_extractor=self.config_extractor,
-                        service_container=self.service_container,
-                    )
-                    self.graph_builder.graph.add_node(node.name, node_instance)
-                    self.graph_builder.nodes[node.name] = node_instance
-                    logger.info(f"Added node '{node.name}' from registry")
-                except KeyError:
-                    available_nodes = node_registry.list_nodes()
-                    raise ValueError(
-                        f"Node '{node.name}' not found in registry. Available nodes: {available_nodes}"
-                    )
-
-        # Add edges using the workflow config
-        for node in self.workflow_config.nodes:
-            self._add_node_edges_with_builder(node)
-
-        return self.graph_builder.graph
-
-    def _add_node_edges_with_builder(self, node: NodeConfig):
-        """Add node edges using the graph builder's graph."""
-        if node.edges:
-            for edge in node.edges:
-                self.graph_builder.graph.add_edge(node.name, edge)
-                if edge == END:
-                    self.final_nodes.append(node.name)
-        elif node.conditional_edge:
-            routing_function = getattr(self, node.conditional_edge.routing_function)
-            self.graph_builder.graph.add_conditional_edges(
-                node.name, routing_function, node.conditional_edge.conditions
-            )
-            # Check if END is in conditions (handles both dict and list formats)
-            conditions = node.conditional_edge.conditions
-            if isinstance(conditions, dict):
-                if END in conditions.values():
-                    self.final_nodes.append(node.name)
-            elif isinstance(conditions, list):
-                if END in conditions:
-                    self.final_nodes.append(node.name)
-        else:
-            raise ValueError("Node should have at least one edge or conditional_edge")
-
-    def create_graph(self):
-        """Create and compile the graph using GraphBuilder."""
-        workflow = self._build_workflow_with_builder()
-        # Reset final_nodes as they're populated during edge creation
-        # (Note: final_nodes are populated in _add_node_edges_with_builder)
-
-        return workflow.compile()
-
-    def build_chain(self):
-        """
-        Builds the langchain chain for the given configuration.
-
-        Returns:
-            Callable[[Dict], Dict]: The langchain chain.
-        """
-        if not self.graph:
-            self.graph = self.create_graph()
-
-        return self.graph
+    @property
+    def final_nodes(self) -> list[str]:
+        """Get final nodes from the graph builder."""
+        return self.graph_builder.final_nodes
 
     async def answer_astream(
         self,
@@ -171,7 +89,7 @@ class QuivrQARAGLangGraph:
         Answer a question using the langgraph chain and yield each chunk of the answer separately.
         """
         concat_list_files = format_file_list(list_files)
-        conversational_qa_chain = self.build_chain()
+        conversational_qa_chain = self.graph_builder.get_compiled_graph()
 
         rolling_message = AIMessageChunk(content="")
         docs: list[Document] | None = None
