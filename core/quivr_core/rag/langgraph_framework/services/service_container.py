@@ -78,9 +78,14 @@ class RetrievalServiceFactory(ServiceFactory):
 
 
 class ServiceContainer:
-    """Dependency injection container for services with LRU cache per service type."""
+    """Dependency injection container for services with optional LRU cache per service type."""
 
-    def __init__(self, vector_store=None, max_cache_per_service: int = 5):
+    def __init__(
+        self,
+        vector_store=None,
+        max_cache_per_service: int = 5,
+        enable_caching: bool = True,
+    ):
         # Use OrderedDict for LRU cache behavior per service type
         self._services: Dict[Type, OrderedDictImpl[str, Any]] = {}
         self._factories: Dict[Type, ServiceFactory] = {
@@ -89,6 +94,7 @@ class ServiceContainer:
             RAGPromptService: PromptServiceFactory(),
         }
         self._max_cache_per_service = max_cache_per_service
+        self._enable_caching = enable_caching
 
         # Register RetrieverService factory if vector_store is provided
         if vector_store:
@@ -124,13 +130,33 @@ class ServiceContainer:
                     logger.warning(f"Error cleaning up evicted service: {e}")
 
     def get_service(self, service_type: Type[T], config: Optional[Any] = None) -> T:
-        """Get or create a service instance with LRU cache per service type."""
+        """Get or create a service instance with optional LRU cache per service type."""
         import hashlib
         import json
 
         if service_type not in self._factories:
             raise ValueError(f"No factory registered for service type: {service_type}")
 
+        factory = self._factories[service_type]
+
+        # Validate config type (skip validation if factory doesn't specify a config type)
+        if config is not None:
+            expected_config_type = factory.get_config_type()
+            if expected_config_type is not None and not isinstance(
+                config, expected_config_type
+            ):
+                raise TypeError(
+                    f"Expected config of type {expected_config_type}, got {type(config)}"
+                )
+
+        # If caching is disabled, always create a new instance
+        if not self._enable_caching:
+            logger.debug(
+                f"Creating new {service_type.__name__} instance (caching disabled)"
+            )
+            return factory.create(config)
+
+        # Caching is enabled, proceed with cache logic
         # Get the cache for this service type
         service_cache = self._get_service_cache(service_type)
 
@@ -154,18 +180,6 @@ class ServiceContainer:
             return service
 
         # Service not in cache, create new instance
-        factory = self._factories[service_type]
-
-        # Validate config type (skip validation if factory doesn't specify a config type)
-        if config is not None:
-            expected_config_type = factory.get_config_type()
-            if expected_config_type is not None and not isinstance(
-                config, expected_config_type
-            ):
-                raise TypeError(
-                    f"Expected config of type {expected_config_type}, got {type(config)}"
-                )
-
         # Evict oldest if at capacity
         self._evict_oldest_if_needed(service_cache)
 
@@ -177,7 +191,11 @@ class ServiceContainer:
         return service
 
     def clear_cache(self, service_type: Optional[Type] = None):
-        """Clear cached services. If service_type is None, clear all caches."""
+        """Clear cached services. If service_type is None, clear all caches. No-op if caching is disabled."""
+        if not self._enable_caching:
+            logger.debug("Cache clear requested but caching is disabled")
+            return
+
         if service_type is None:
             # Clean up all services before clearing
             for service_cache in self._services.values():
@@ -206,7 +224,10 @@ class ServiceContainer:
                 service_cache.clear()
 
     def get_cache_stats(self) -> Dict[str, Dict[str, Any]]:
-        """Get cache statistics for monitoring."""
+        """Get cache statistics for monitoring. Returns empty dict if caching is disabled."""
+        if not self._enable_caching:
+            return {}
+
         stats = {}
         for service_type, service_cache in self._services.items():
             stats[service_type.__name__] = {
