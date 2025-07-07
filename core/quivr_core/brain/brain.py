@@ -12,7 +12,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.vectorstores import VectorStore
 from langchain_openai import OpenAIEmbeddings
 from quivr_core.rag.entities.prompt import PromptConfig
-from quivr_core.rag.example_quivraq_refactor import AgentState
+from quivr_core.rag.langgraph_framework.state import AgentState
 from quivr_core.rag.langgraph_framework.base.extractors import ConfigMapping
 from quivr_core.rag.langgraph_framework.entities.filter_history_config import (
     FilterHistoryConfig,
