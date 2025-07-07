@@ -6,7 +6,7 @@ from langchain_core.messages.ai import AIMessageChunk
 from langchain_core.prompts import format_document
 from langfuse.callback import CallbackHandler
 
-from quivr_core.rag.entities.config import WorkflowConfig
+from quivr_core.rag.entities.config import NodeConfig, WorkflowConfig
 from quivr_core.rag.entities.models import (
     ChatLLMMetadata,
     ParsedRAGResponse,
@@ -15,12 +15,48 @@ from quivr_core.rag.entities.models import (
     RawRAGResponse,
 )
 from quivr_core.rag.prompts import TemplatePromptName, custom_prompts
+from langchain_core.runnables.schema import StreamEvent
 
 # TODO(@aminediro): define a types packages where we clearly define IO types
 # This should be used for serialization/deseriallization later
 
 
 logger = logging.getLogger("quivr_core")
+
+
+def is_final_node_with_docs(final_nodes: list[str], event: StreamEvent) -> bool:
+    event_data = event.get("data", {})
+    event_metadata = event.get("metadata", {})
+    return (
+        "output" in event_data
+        and event_data["output"] is not None
+        and "tasks" in event_data["output"]
+        and event_metadata.get("langgraph_node") in final_nodes
+    )
+
+
+def is_final_node_and_chat_model_stream(
+    final_nodes: list[str], event: StreamEvent
+) -> bool:
+    event_metadata = event.get("metadata", {})
+    return (
+        event.get("event") == "on_chat_model_stream"
+        and "langgraph_node" in event_metadata
+        and event_metadata.get("langgraph_node") in final_nodes
+    )
+
+
+def extract_node_name(nodes: list[NodeConfig], event: StreamEvent) -> str:
+    metadata = event.get("metadata", {})
+    if "langgraph_node" in metadata:
+        name = metadata["langgraph_node"]
+        for node in nodes:
+            if node.name == name:
+                if node.description:
+                    return node.description
+                else:
+                    return node.name
+    return ""
 
 
 def model_supports_function_calling(model_name: str):

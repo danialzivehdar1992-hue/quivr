@@ -6,7 +6,6 @@ from quivr_core.base_config import QuivrBaseConfig
 from quivr_core.rag.entities.chat import ChatHistory
 from quivr_core.rag.entities.models import ParsedRAGChunkResponse, QuivrKnowledge
 from langchain.schema.messages import AIMessageChunk
-from langchain_core.runnables.schema import StreamEvent
 from langchain_core.documents import Document
 
 from quivr_core.rag.langgraph_framework.services.llm_service import LLMService
@@ -31,6 +30,9 @@ from quivr_core.rag.utils import (
     format_file_list,
     get_chunk_metadata,
     parse_chunk_response,
+    is_final_node_with_docs,
+    is_final_node_and_chat_model_stream,
+    extract_node_name,
 )
 from quivr_core.rag.langgraph_framework.base.extractors import ConfigMapping
 
@@ -196,15 +198,15 @@ class QuivrQARAGLangGraph:
                 "callbacks": [langfuse_handler],
             },
         ):
-            node_name = self._extract_node_name(event)
+            node_name = extract_node_name(self.workflow_config.nodes, event)
 
-            if self._is_final_node_with_docs(event):
+            if is_final_node_with_docs(self.final_nodes, event):
                 event_data = event.get("data", {})
                 if "output" in event_data and event_data["output"]:
                     tasks = event_data["output"].get("tasks")
                     docs = tasks.docs if tasks else []
 
-            if self._is_final_node_and_chat_model_stream(event):
+            if is_final_node_and_chat_model_stream(self.final_nodes, event):
                 event_data = event.get("data", {})
                 if "chunk" in event_data:
                     chunk = event_data["chunk"]
@@ -237,33 +239,3 @@ class QuivrQARAGLangGraph:
             metadata=get_chunk_metadata(rolling_message, docs),
             last_chunk=True,
         )
-
-    def _is_final_node_with_docs(self, event: StreamEvent) -> bool:
-        event_data = event.get("data", {})
-        event_metadata = event.get("metadata", {})
-        return (
-            "output" in event_data
-            and event_data["output"] is not None
-            and "tasks" in event_data["output"]
-            and event_metadata.get("langgraph_node") in self.final_nodes
-        )
-
-    def _is_final_node_and_chat_model_stream(self, event: StreamEvent) -> bool:
-        event_metadata = event.get("metadata", {})
-        return (
-            event.get("event") == "on_chat_model_stream"
-            and "langgraph_node" in event_metadata
-            and event_metadata.get("langgraph_node") in self.final_nodes
-        )
-
-    def _extract_node_name(self, event: StreamEvent) -> str:
-        metadata = event.get("metadata", {})
-        if "langgraph_node" in metadata:
-            name = metadata["langgraph_node"]
-            for node in self.workflow_config.nodes:
-                if node.name == name:
-                    if node.description:
-                        return node.description
-                    else:
-                        return node.name
-        return ""
