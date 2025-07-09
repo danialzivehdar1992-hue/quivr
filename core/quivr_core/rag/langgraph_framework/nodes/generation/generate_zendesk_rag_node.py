@@ -57,6 +57,7 @@ class GenerateZendeskRagNode(BaseNode):
         # Get configs
         workflow_config = self.get_config(WorkflowConfig, config)
         llm_config = self.get_config(LLMEndpointConfig, config)
+        llm_service = self.get_service(LLMService, llm_config)
 
         node_config = workflow_config.get_node_config_by_name(self.name)
 
@@ -65,19 +66,21 @@ class GenerateZendeskRagNode(BaseNode):
         workspace_id = runtime_context.workspace_id
 
         if not workspace_id:
-            raise ValueError("workspace_id must be provided in state for Zendesk tools")
+            logger.warning(
+                "workspace_id must be provided in state for Zendesk tools to work"
+            )
 
-        # Get services with runtime context - the ToolService will automatically
-        # extract the right runtime args for each tool based on their schemas
-        tool_service = self.get_service(
-            ToolService,
-            node_config.tools_config,
-            runtime_context={"workspace_id": workspace_id},
-        )
-        llm_service = self.get_service(LLMService, llm_config)
+        if workspace_id:
+            # Get services with runtime context - the ToolService will automatically
+            # extract the right runtime args for each tool based on their schemas
+            tool_service = self.get_service(
+                ToolService,
+                node_config.tools_config,
+                runtime_context={"workspace_id": workspace_id},
+            )
 
-        # Set the tool service on the LLM service
-        llm_service.set_tool_service(tool_service)
+            # Set the tool service on the LLM service
+            llm_service.set_tool_service(tool_service)
 
         tasks = state["tasks"] if "tasks" in state else None
         docs: List[Document] = tasks.deduplicated_docs if tasks else []
