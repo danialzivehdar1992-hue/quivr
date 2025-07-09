@@ -1,12 +1,14 @@
 """Tests for generation nodes."""
 
 import pytest
+from uuid import uuid4
 from unittest.mock import Mock, patch
 from langchain_core.messages import HumanMessage
 
 from quivr_core.rag.entities.config import (
     LLMEndpointConfig,
     RetrievalConfig,
+    RunTimeContext,
 )
 from quivr_core.rag.entities.prompt import PromptConfig
 
@@ -60,9 +62,6 @@ class TestGenerateRagNode:
         """Create a valid state for testing."""
         state = create_sample_agent_state()
         state["tasks"] = create_sample_user_tasks()
-        state["workspace_id"] = (
-            "test-workspace-id"  # Add workspace_id for Zendesk tests
-        )
         return state
 
     @pytest.fixture(scope="function")
@@ -140,16 +139,19 @@ class TestGenerateRagNode:
             mock_template.format.return_value = "Formatted RAG prompt"
             mock_get_prompt.return_value = mock_template
 
-            with patch.object(
-                generate_rag_node, "get_service", return_value=mock_llm_service
-            ), patch.object(
-                generate_rag_node,
-                "get_config",
-                side_effect=lambda config_type, config=None: mock_workflow_config
-                if config_type.__name__ == "WorkflowConfig"
-                else mock_prompt_config
-                if config_type.__name__ == "PromptConfig"
-                else mock_llm_config,
+            with (
+                patch.object(
+                    generate_rag_node, "get_service", return_value=mock_llm_service
+                ),
+                patch.object(
+                    generate_rag_node,
+                    "get_config",
+                    side_effect=lambda config_type, config=None: mock_workflow_config
+                    if config_type.__name__ == "WorkflowConfig"
+                    else mock_prompt_config
+                    if config_type.__name__ == "PromptConfig"
+                    else mock_llm_config,
+                ),
             ):
                 result = await generate_rag_node.execute(valid_state, config)
 
@@ -174,16 +176,19 @@ class TestGenerateRagNode:
             mock_template.format.return_value = "Formatted RAG prompt with docs"
             mock_get_prompt.return_value = mock_template
 
-            with patch.object(
-                generate_rag_node, "get_service", return_value=mock_llm_service
-            ), patch.object(
-                generate_rag_node,
-                "get_config",
-                side_effect=lambda config_type, config=None: mock_workflow_config
-                if config_type.__name__ == "WorkflowConfig"
-                else mock_prompt_config
-                if config_type.__name__ == "PromptConfig"
-                else mock_llm_config,
+            with (
+                patch.object(
+                    generate_rag_node, "get_service", return_value=mock_llm_service
+                ),
+                patch.object(
+                    generate_rag_node,
+                    "get_config",
+                    side_effect=lambda config_type, config=None: mock_workflow_config
+                    if config_type.__name__ == "WorkflowConfig"
+                    else mock_prompt_config
+                    if config_type.__name__ == "PromptConfig"
+                    else mock_llm_config,
+                ),
             ):
                 result = await generate_rag_node.execute(valid_state, config)
 
@@ -212,16 +217,19 @@ class TestGenerateRagNode:
             mock_template.format.return_value = "Custom formatted prompt"
             mock_get_prompt.return_value = mock_template
 
-            with patch.object(
-                generate_rag_node, "get_service", return_value=mock_llm_service
-            ), patch.object(
-                generate_rag_node,
-                "get_config",
-                side_effect=lambda config_type, config=None: mock_workflow_config
-                if config_type.__name__ == "WorkflowConfig"
-                else mock_prompt_config
-                if config_type.__name__ == "PromptConfig"
-                else mock_llm_config,
+            with (
+                patch.object(
+                    generate_rag_node, "get_service", return_value=mock_llm_service
+                ),
+                patch.object(
+                    generate_rag_node,
+                    "get_config",
+                    side_effect=lambda config_type, config=None: mock_workflow_config
+                    if config_type.__name__ == "WorkflowConfig"
+                    else mock_prompt_config
+                    if config_type.__name__ == "PromptConfig"
+                    else mock_llm_config,
+                ),
             ):
                 result = await generate_rag_node.execute(valid_state, config)
 
@@ -241,9 +249,6 @@ class TestGenerateChatLlmNode:
         """Create a valid state for testing."""
         state = create_sample_agent_state()
         state["tasks"] = create_sample_user_tasks()
-        state["workspace_id"] = (
-            "test-workspace-id"  # Add workspace_id for Zendesk tests
-        )
         return state
 
     @pytest.fixture(scope="function")
@@ -318,16 +323,19 @@ class TestGenerateChatLlmNode:
             mock_template.format.return_value = "Formatted chat prompt"
             mock_get_prompt.return_value = mock_template
 
-            with patch.object(
-                generate_chat_llm_node, "get_service", return_value=mock_llm_service
-            ), patch.object(
-                generate_chat_llm_node,
-                "get_config",
-                side_effect=lambda config_type, config=None: mock_workflow_config
-                if config_type.__name__ == "WorkflowConfig"
-                else mock_prompt_config
-                if config_type.__name__ == "PromptConfig"
-                else mock_llm_config,
+            with (
+                patch.object(
+                    generate_chat_llm_node, "get_service", return_value=mock_llm_service
+                ),
+                patch.object(
+                    generate_chat_llm_node,
+                    "get_config",
+                    side_effect=lambda config_type, config=None: mock_workflow_config
+                    if config_type.__name__ == "WorkflowConfig"
+                    else mock_prompt_config
+                    if config_type.__name__ == "PromptConfig"
+                    else mock_llm_config,
+                ),
             ):
                 result = await generate_chat_llm_node.execute(valid_state, config)
 
@@ -360,16 +368,19 @@ class TestGenerateChatLlmNode:
             mock_template.format.return_value = "Chat prompt without docs"
             mock_get_prompt.return_value = mock_template
 
-            with patch.object(
-                generate_chat_llm_node, "get_service", return_value=mock_llm_service
-            ), patch.object(
-                generate_chat_llm_node,
-                "get_config",
-                side_effect=lambda config_type, config=None: mock_workflow_config
-                if config_type.__name__ == "WorkflowConfig"
-                else mock_prompt_config
-                if config_type.__name__ == "PromptConfig"
-                else mock_llm_config,
+            with (
+                patch.object(
+                    generate_chat_llm_node, "get_service", return_value=mock_llm_service
+                ),
+                patch.object(
+                    generate_chat_llm_node,
+                    "get_config",
+                    side_effect=lambda config_type, config=None: mock_workflow_config
+                    if config_type.__name__ == "WorkflowConfig"
+                    else mock_prompt_config
+                    if config_type.__name__ == "PromptConfig"
+                    else mock_llm_config,
+                ),
             ):
                 result = await generate_chat_llm_node.execute(valid_state, config)
 
@@ -389,9 +400,6 @@ class TestGenerateZendeskRagNode:
         """Create a valid state for testing."""
         state = create_sample_agent_state()
         state["tasks"] = create_sample_user_tasks()
-        state["workspace_id"] = (
-            "test-workspace-id"  # Add workspace_id for Zendesk tests
-        )
         return state
 
     @pytest.fixture(scope="function")
@@ -447,7 +455,11 @@ class TestGenerateZendeskRagNode:
         config = Mock()
 
         # Create mock configs for Zendesk node
-        from quivr_core.rag.entities.config import WorkflowConfig, NodeConfig
+        from quivr_core.rag.entities.config import (
+            WorkflowConfig,
+            NodeConfig,
+            RunTimeContext,
+        )
         from quivr_core.rag.entities.prompt import PromptConfig
 
         mock_node_config = NodeConfig(name="generate_zendesk_rag", edges=[])
@@ -458,22 +470,29 @@ class TestGenerateZendeskRagNode:
 
         mock_prompt_config = PromptConfig(prompt="Custom prompt")
         mock_llm_config = LLMEndpointConfig(max_context_tokens=8000)
+        mock_runtime_context = RunTimeContext(workspace_id=uuid4())
 
         with patch("quivr_core.rag.prompt.registry.get_prompt") as mock_get_prompt:
             mock_template = Mock()
             mock_template.format.return_value = "Formatted Zendesk prompt"
             mock_get_prompt.return_value = mock_template
 
-            with patch.object(
-                generate_zendesk_rag_node, "get_service", return_value=mock_llm_service
-            ), patch.object(
-                generate_zendesk_rag_node,
-                "get_config",
-                side_effect=lambda config_type, config=None: mock_workflow_config
-                if config_type.__name__ == "WorkflowConfig"
-                else mock_prompt_config
-                if config_type.__name__ == "PromptConfig"
-                else mock_llm_config,
+            with (
+                patch.object(
+                    generate_zendesk_rag_node,
+                    "get_service",
+                    return_value=mock_llm_service,
+                ),
+                patch.object(
+                    generate_zendesk_rag_node,
+                    "get_config",
+                    side_effect=lambda config_type, *args, **kwargs: {
+                        WorkflowConfig: mock_workflow_config,
+                        PromptConfig: mock_prompt_config,
+                        LLMEndpointConfig: mock_llm_config,
+                        RunTimeContext: mock_runtime_context,
+                    }.get(config_type, Mock()),
+                ),
             ):
                 result = await generate_zendesk_rag_node.execute(valid_state, config)
 
@@ -500,7 +519,11 @@ class TestGenerateZendeskRagNode:
         config = Mock()
 
         # Create mock configs for Zendesk node
-        from quivr_core.rag.entities.config import WorkflowConfig, NodeConfig
+        from quivr_core.rag.entities.config import (
+            WorkflowConfig,
+            NodeConfig,
+            RunTimeContext,
+        )
         from quivr_core.rag.entities.prompt import PromptConfig
 
         mock_node_config = NodeConfig(name="generate_zendesk_rag", edges=[])
@@ -511,22 +534,29 @@ class TestGenerateZendeskRagNode:
 
         mock_prompt_config = PromptConfig(prompt="Custom prompt")
         mock_llm_config = LLMEndpointConfig(max_context_tokens=8000)
+        mock_runtime_context = RunTimeContext(workspace_id=uuid4())
 
         with patch("quivr_core.rag.prompt.registry.get_prompt") as mock_get_prompt:
             mock_template = Mock()
             mock_template.format.return_value = "Zendesk prompt with metadata"
             mock_get_prompt.return_value = mock_template
 
-            with patch.object(
-                generate_zendesk_rag_node, "get_service", return_value=mock_llm_service
-            ), patch.object(
-                generate_zendesk_rag_node,
-                "get_config",
-                side_effect=lambda config_type, config=None: mock_workflow_config
-                if config_type.__name__ == "WorkflowConfig"
-                else mock_prompt_config
-                if config_type.__name__ == "PromptConfig"
-                else mock_llm_config,
+            with (
+                patch.object(
+                    generate_zendesk_rag_node,
+                    "get_service",
+                    return_value=mock_llm_service,
+                ),
+                patch.object(
+                    generate_zendesk_rag_node,
+                    "get_config",
+                    side_effect=lambda config_type, *args, **kwargs: {
+                        WorkflowConfig: mock_workflow_config,
+                        PromptConfig: mock_prompt_config,
+                        LLMEndpointConfig: mock_llm_config,
+                        RunTimeContext: mock_runtime_context,
+                    }.get(config_type, Mock()),
+                ),
             ):
                 result = await generate_zendesk_rag_node.execute(valid_state, config)
 
@@ -583,9 +613,6 @@ class TestGenerationNodesIntegration:
         state = create_sample_agent_state()
         state["tasks"] = create_sample_user_tasks()
         state["documents"] = create_sample_documents()
-        state["workspace_id"] = (
-            "test-workspace-id"  # Add workspace_id for Zendesk tests
-        )
 
         nodes = [GenerateRagNode(), GenerateChatLlmNode(), GenerateZendeskRagNode()]
 
@@ -629,6 +656,7 @@ class TestGenerationNodesIntegration:
 
                 mock_prompt_config = PromptConfig(prompt="Custom prompt")
                 mock_llm_config = LLMEndpointConfig(max_context_tokens=8000)
+                mock_runtime_context = RunTimeContext(workspace_id=uuid4())
 
                 with patch(
                     "quivr_core.rag.prompt.registry.get_prompt"
@@ -645,6 +673,8 @@ class TestGenerationNodesIntegration:
                         if config_type.__name__ == "WorkflowConfig"
                         else mock_prompt_config
                         if config_type.__name__ == "PromptConfig"
+                        else mock_runtime_context
+                        if config_type.__name__ == "RunTimeContext"
                         else mock_llm_config,
                     ):
                         result = await node.execute(state, config)
