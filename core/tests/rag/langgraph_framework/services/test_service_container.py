@@ -248,18 +248,24 @@ class TestServiceContainer:
 
     def test_service_creation_logging(self, container, caplog):
         """Test that service creation is logged."""
-        container.get_service(LLMService)
+        import logging
+
+        with caplog.at_level(logging.DEBUG, logger="quivr_core"):
+            container.get_service(LLMService)
 
         assert "Creating new LLMService instance" in caplog.text
 
     def test_service_cache_hit_logging(self, container, caplog):
         """Test that cache hits are logged."""
-        # Create service first
-        container.get_service(LLMService)
-        caplog.clear()
+        import logging
 
-        # Access again (should be cache hit)
-        container.get_service(LLMService)
+        with caplog.at_level(logging.DEBUG, logger="quivr_core"):
+            # Create service first
+            container.get_service(LLMService)
+            caplog.clear()
+
+            # Access again (should be cache hit)
+            container.get_service(LLMService)
 
         assert "Retrieved cached LLMService instance" in caplog.text
 

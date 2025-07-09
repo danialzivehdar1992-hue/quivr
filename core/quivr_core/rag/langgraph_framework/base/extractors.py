@@ -3,7 +3,7 @@ Configuration extraction interfaces and implementations.
 Allows nodes to receive config extractors that know how to navigate different config structures.
 """
 
-from typing import Dict, Any, Type, Union, Callable, Optional
+from typing import Dict, Any, Type, Union, Callable, Optional, TypeVar
 from quivr_core.rag.langgraph_framework.base.exceptions import (
     ConfigExtractionError,
 )
@@ -13,6 +13,9 @@ import copy
 import logging
 
 logger = logging.getLogger("quivr_core")
+
+# Add TypeVar for generic return type
+T = TypeVar("T", bound=BaseModel)
 
 
 class ConfigMapping:
@@ -39,9 +42,9 @@ class ConfigMapping:
     def extract(
         self,
         config: BaseGraphConfig,
-        config_type: Type[BaseModel],
+        config_type: Type[T],
         node_name: Optional[str] = None,
-    ) -> BaseModel:
+    ) -> T:
         """Extract and validate a specific config type with optional node-specific overrides."""
 
         try:
@@ -68,7 +71,7 @@ class ConfigMapping:
             ) from e
 
     def _extract_global_config(
-        self, config: Dict[str, Any], config_type: Type[BaseModel]
+        self, config: Dict[str, Any], config_type: Type[T]
     ) -> Dict[str, Any]:
         """Extract global config using the mapping."""
         extractor = self.mapping.get(config_type)
@@ -86,7 +89,7 @@ class ConfigMapping:
             raise ValueError(f"Invalid extractor for {config_type}: {extractor}")
 
     def _extract_node_config(
-        self, config: Dict[str, Any], config_type: Type[BaseModel], node_name: str
+        self, config: Dict[str, Any], config_type: Type[T], node_name: str
     ) -> Dict[str, Any]:
         """Enhanced to check workflow nodes AND validate configs."""
         # Standard node config lookup

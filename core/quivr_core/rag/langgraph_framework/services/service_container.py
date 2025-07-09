@@ -83,9 +83,14 @@ class RetrievalServiceFactory(ServiceFactory):
 
 
 class ServiceContainer:
-    """Dependency injection container for services with LRU cache per service type."""
+    """Dependency injection container for services with optional LRU cache per service type."""
 
-    def __init__(self, vector_store=None, max_cache_per_service: int = 5):
+    def __init__(
+        self,
+        vector_store=None,
+        max_cache_per_service: int = 5,
+        enable_caching: bool = True,
+    ):
         # Use OrderedDict for LRU cache behavior per service type
         self._services: Dict[Type, OrderedDictImpl[str, Any]] = {}
         self._factories: Dict[Type, ServiceFactory] = {
@@ -93,6 +98,7 @@ class ServiceContainer:
             ToolService: ToolServiceFactory(),
         }
         self._max_cache_per_service = max_cache_per_service
+        self._enable_caching = enable_caching
 
         # Register RetrieverService factory if vector_store is provided
         if vector_store:
@@ -164,7 +170,7 @@ class ServiceContainer:
                     f"Expected config of type {expected_config_type}, got {type(config)}"
                 )
 
-        if not use_cache:
+        if not use_cache or not self._enable_caching:
             logger.debug(f"Creating new non-cached {service_type.__name__} instance")
             return factory.create(config)
 
@@ -201,7 +207,11 @@ class ServiceContainer:
         return service
 
     def clear_cache(self, service_type: Optional[Type] = None):
-        """Clear cached services. If service_type is None, clear all caches."""
+        """Clear cached services. If service_type is None, clear all caches. No-op if caching is disabled."""
+        if not self._enable_caching:
+            logger.debug("Cache clear requested but caching is disabled")
+            return
+
         if service_type is None:
             # Clean up all services before clearing
             for service_cache in self._services.values():
@@ -230,7 +240,10 @@ class ServiceContainer:
                 service_cache.clear()
 
     def get_cache_stats(self) -> Dict[str, Dict[str, Any]]:
-        """Get cache statistics for monitoring."""
+        """Get cache statistics for monitoring. Returns empty dict if caching is disabled."""
+        if not self._enable_caching:
+            return {}
+
         stats = {}
         for service_type, service_cache in self._services.items():
             stats[service_type.__name__] = {

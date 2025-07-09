@@ -35,7 +35,7 @@ def get_rag_context_length(self, state: AgentState, docs: List[Document]) -> int
 def reduce_rag_context(
     state: Dict[str, Any],
     inputs: Dict[str, Any],
-    prompt: BasePromptTemplate,
+    prompt: BasePromptTemplate | str,
     count_tokens_fn: Callable[[str], int],
     max_context_tokens: int,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:

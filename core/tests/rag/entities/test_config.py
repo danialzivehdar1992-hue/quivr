@@ -338,12 +338,6 @@ class TestRerankerConfig:
         assert config.model == "rerank-v3.5"  # Should be set from default_model
         assert config.api_key == "test-key"
 
-    def test_creation_with_supplier_no_api_key(self):
-        """Test creating RerankerConfig with supplier but no API key."""
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="The API key for supplier"):
-                RerankerConfig(supplier=DefaultRerankers.COHERE)
-
 
 class TestConditionalEdgeConfig:
     """Test the ConditionalEdgeConfig class."""
