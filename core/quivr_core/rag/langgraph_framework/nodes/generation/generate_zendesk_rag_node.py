@@ -8,7 +8,11 @@ from langchain_core.prompts import BasePromptTemplate
 from langchain_core.documents import Document
 from datetime import datetime
 from quivr_core.rag.utils import format_dict
-from quivr_core.rag.entities.config import LLMEndpointConfig, WorkflowConfig
+from quivr_core.rag.entities.config import (
+    LLMEndpointConfig,
+    WorkflowConfig,
+    RunTimeContext,
+)
 from quivr_core.rag.langgraph_framework.base.graph_config import BaseGraphConfig
 from quivr_core.rag.prompt.registry import get_prompt
 from quivr_core.rag.langgraph_framework.services.llm_service import LLMService
@@ -57,7 +61,8 @@ class GenerateZendeskRagNode(BaseNode):
         node_config = workflow_config.get_node_config_by_name(self.name)
 
         # Extract workspace_id and zendesk_id from state or config
-        workspace_id = state.get("workspace_id")
+        runtime_context = self.get_config(RunTimeContext, config)
+        workspace_id = runtime_context.workspace_id
 
         if not workspace_id:
             raise ValueError("workspace_id must be provided in state for Zendesk tools")

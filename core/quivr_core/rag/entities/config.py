@@ -581,6 +581,10 @@ class CitationConfig(QuivrBaseConfig):
     max_files: int = 20
 
 
+class RunTimeContext(QuivrBaseConfig):
+    workspace_id: UUID | None = None
+
+
 class RetrievalConfig(QuivrBaseConfig):
     citation_config: CitationConfig = CitationConfig()
     reranker_config: RerankerConfig = RerankerConfig()
@@ -589,6 +593,7 @@ class RetrievalConfig(QuivrBaseConfig):
     filter_history_config: FilterHistoryConfig = FilterHistoryConfig()
     prompt_config: PromptConfig = PromptConfig()
     workflow_config: WorkflowConfig = WorkflowConfig(nodes=DefaultWorkflow.RAG.nodes)
+    runtime_context: RunTimeContext = RunTimeContext()
 
     def __init__(self, **data):
         super().__init__(**data)

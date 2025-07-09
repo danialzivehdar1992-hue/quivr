@@ -40,6 +40,7 @@ from quivr_core.rag.entities.chat import ChatHistory
 from quivr_core.rag.entities.config import (
     LLMEndpointConfig,
     RetrievalConfig,
+    RunTimeContext,
     WorkflowConfig,
 )
 from quivr_core.rag.entities.models import (
@@ -544,6 +545,8 @@ class Brain:
         if not retrieval_config:
             retrieval_config = RetrievalConfig(llm_config=self.llm.get_config())
 
+        retrieval_config.runtime_context.workspace_id = self.workspace_id
+
         workflow_config = retrieval_config.workflow_config
         llm_config = retrieval_config.llm_config
         assert self.service_container, "Service container is not set"
@@ -554,6 +557,7 @@ class Brain:
                 LLMEndpointConfig: "llm_config",
                 WorkflowConfig: "workflow_config",
                 FilterHistoryConfig: "filter_history_config",
+                RunTimeContext: "runtime_context",
             }
         )
 

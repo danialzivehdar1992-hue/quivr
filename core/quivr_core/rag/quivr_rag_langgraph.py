@@ -97,9 +97,6 @@ class QuivrQARAGLangGraph:
         system_prompt = system_prompt
         messages = [("system", system_prompt)] if system_prompt else []
         messages.append(("user", question))
-        import os
-
-        logger.info("OPENAI_API_KEY: %s", os.getenv("OPENAI_API_KEY"))
 
         async for event in conversational_qa_chain.astream_events(
             {
