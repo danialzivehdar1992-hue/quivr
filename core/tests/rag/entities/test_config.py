@@ -385,18 +385,18 @@ class TestNodeConfig:
         assert config.name == START
         assert config.edges[0] == END
 
-    @patch("quivr_core.rag.entities.config.LLMToolFactory")
-    def test_creation_with_tools(self, mock_factory):
-        """Test creating NodeConfig with tools."""
-        mock_tool = Mock()
-        mock_factory.create_tool.return_value = mock_tool
+    def test_creation_with_tools_config(self):
+        """Test creating NodeConfig with tools config."""
+        from quivr_core.rag.entities.tools import ToolsConfig, ToolConfig
 
-        config = NodeConfig(
-            name="test_node", tools=[{"name": "test_tool", "param": "value"}]
-        )
+        tool_config = ToolConfig(name="web_search", config={"max_results": 10})
+        tools_config = ToolsConfig(max_tool_calls=5, tools=[tool_config])
+        config = NodeConfig(name="test_node", tools_config=tools_config)
 
-        mock_factory.create_tool.assert_called_once()
-        assert config.instantiated_tools == [mock_tool]
+        assert config.tools_config is not None
+        assert config.tools_config.max_tool_calls == 5
+        assert len(config.tools_config.tools) == 1
+        assert config.tools_config.tools[0].name == "web_search"
 
 
 class TestDefaultWorkflow:
@@ -422,9 +422,6 @@ class TestWorkflowConfig:
 
         assert config.name is None
         assert config.nodes == []
-        assert config.available_tools is None
-        assert config.validated_tools == []
-        assert config.activated_tools == []
 
     def test_creation_with_valid_start_node(self):
         """Test creating WorkflowConfig with valid start node."""
@@ -446,53 +443,23 @@ class TestWorkflowConfig:
         ):
             WorkflowConfig(nodes=nodes)
 
-    def test_get_node_tools(self):
-        """Test getting tools for a specific node."""
-        from langchain_core.tools import BaseTool
-
-        class MockTool(BaseTool):
-            name: str = "test_tool"
-            description: str = "Test tool"
-
-            def _run(self, query: str) -> str:
-                return "result"
-
-        tool = MockTool()
-        # Create nodes with START as first node to satisfy validation
+    def test_get_node_config_by_name(self):
+        """Test getting node config by name."""
         nodes = [
             NodeConfig(name=START, edges=["test"]),
-            NodeConfig(name="test", instantiated_tools=[tool], edges=[END]),
+            NodeConfig(name="test", edges=[END]),
         ]
         config = WorkflowConfig(nodes=nodes)
 
-        tools = config.get_node_tools("test")
-        assert len(tools) == 1
-        assert tools[0] == tool
+        node_config = config.get_node_config_by_name("test")
+        assert node_config.name == "test"
+        assert node_config.edges == [END]
 
-        # Test non-existent node
-        tools = config.get_node_tools("nonexistent")
-        assert tools == []
-
-    @patch("quivr_core.rag.entities.config.LLMToolFactory")
-    @patch("quivr_core.rag.entities.config.TOOLS_CATEGORIES", {"web_search": {}})
-    @patch("quivr_core.rag.entities.config.TOOLS_LISTS", {"calculator": {}})
-    def test_validate_available_tools_valid(self, mock_factory):
-        """Test validating available tools with valid tools."""
-        mock_tool_instance = Mock()
-        mock_tool_instance.tool = Mock()
-        mock_factory.create_tool.return_value = mock_tool_instance
-
-        config = WorkflowConfig(available_tools=["web_search"])
-
-        assert len(config.validated_tools) == 1
-        mock_factory.create_tool.assert_called_once_with("web_search", {})
-
-    @patch("quivr_core.rag.entities.config.TOOLS_CATEGORIES", {"web_search": {}})
-    @patch("quivr_core.rag.entities.config.TOOLS_LISTS", {"calculator": {}})
-    def test_validate_available_tools_invalid(self):
-        """Test validating available tools with invalid tools."""
-        with pytest.raises(ValueError, match="Tool invalid_tool is not a valid"):
-            WorkflowConfig(available_tools=["invalid_tool"])
+        # Test non-existent node raises error
+        with pytest.raises(
+            ValueError, match="Node config with name nonexistent not found"
+        ):
+            config.get_node_config_by_name("nonexistent")
 
 
 def test_default_retrievalconfig():

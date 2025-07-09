@@ -1,8 +1,4 @@
-import pytest
-from pydantic import ValidationError
-
 from quivr_core.rag.entities.prompt import PromptConfig
-from quivr_core.rag.prompts import TemplatePromptName
 
 
 class TestPromptConfig:
@@ -19,7 +15,7 @@ class TestPromptConfig:
 
     def test_init_with_template_name(self):
         """Test PromptConfig initialization with template name"""
-        template_name = TemplatePromptName.RAG_ANSWER_PROMPT
+        template_name = "rag_answer"
 
         config = PromptConfig(template_name=template_name)
 
@@ -29,7 +25,7 @@ class TestPromptConfig:
     def test_init_with_both_prompt_and_template(self):
         """Test PromptConfig initialization with both prompt and template"""
         custom_prompt = "You are a helpful assistant."
-        template_name = TemplatePromptName.RAG_ANSWER_PROMPT
+        template_name = "rag_answer"
 
         config = PromptConfig(prompt=custom_prompt, template_name=template_name)
 
@@ -54,25 +50,33 @@ class TestPromptConfig:
         """Test PromptConfig initialization from dictionary"""
         data = {
             "prompt": "Custom prompt text",
-            "template_name": TemplatePromptName.RAG_ANSWER_PROMPT,
+            "template_name": "rag_answer",
         }
 
         config = PromptConfig(**data)
 
         assert config.prompt == "Custom prompt text"
-        assert config.template_name == TemplatePromptName.RAG_ANSWER_PROMPT
+        assert config.template_name == "rag_answer"
 
-    def test_template_name_enum_validation(self):
-        """Test that template_name accepts valid enum values"""
-        # Test all valid enum values
-        for template_name in TemplatePromptName:
+    def test_template_name_string_validation(self):
+        """Test that template_name accepts valid string values"""
+        # Test valid string values
+        valid_template_names = [
+            "rag_answer",
+            "chat_llm",
+            "zendesk_template",
+            "agentic_zendesk_template",
+            "zendesk_llm",
+        ]
+        for template_name in valid_template_names:
             config = PromptConfig(template_name=template_name)
             assert config.template_name == template_name
 
-    def test_template_name_invalid_value(self):
-        """Test that template_name rejects invalid values"""
-        with pytest.raises(ValidationError):
-            PromptConfig(template_name="invalid_template_name")
+    def test_template_name_accepts_any_string(self):
+        """Test that template_name accepts any string value"""
+        # Since template_name is Optional[str], it should accept any string
+        config = PromptConfig(template_name="any_custom_template_name")
+        assert config.template_name == "any_custom_template_name"
 
     def test_prompt_string_validation(self):
         """Test prompt string validation"""
@@ -107,15 +111,13 @@ class TestPromptConfig:
 
     def test_serialization(self):
         """Test PromptConfig serialization"""
-        config = PromptConfig(
-            prompt="Test prompt", template_name=TemplatePromptName.RAG_ANSWER_PROMPT
-        )
+        config = PromptConfig(prompt="Test prompt", template_name="rag_answer")
 
         # Test dict conversion
         config_dict = config.model_dump()
         expected_dict = {
             "prompt": "Test prompt",
-            "template_name": TemplatePromptName.RAG_ANSWER_PROMPT,
+            "template_name": "rag_answer",
         }
         assert config_dict == expected_dict
 
@@ -123,47 +125,41 @@ class TestPromptConfig:
         """Test PromptConfig deserialization"""
         config_dict = {
             "prompt": "Test prompt",
-            "template_name": TemplatePromptName.RAG_ANSWER_PROMPT.value,
+            "template_name": "rag_answer",
         }
 
         config = PromptConfig.model_validate(config_dict)
 
         assert config.prompt == "Test prompt"
-        assert config.template_name == TemplatePromptName.RAG_ANSWER_PROMPT
+        assert config.template_name == "rag_answer"
 
     def test_json_serialization(self):
         """Test PromptConfig JSON serialization"""
-        config = PromptConfig(
-            prompt="Test prompt", template_name=TemplatePromptName.RAG_ANSWER_PROMPT
-        )
+        config = PromptConfig(prompt="Test prompt", template_name="rag_answer")
 
         json_str = config.model_dump_json()
         assert isinstance(json_str, str)
         assert "Test prompt" in json_str
-        assert TemplatePromptName.RAG_ANSWER_PROMPT.value in json_str
+        assert "rag_answer" in json_str
 
     def test_json_deserialization(self):
         """Test PromptConfig JSON deserialization"""
-        json_str = f'{{"prompt": "Test prompt", "template_name": "{TemplatePromptName.RAG_ANSWER_PROMPT.value}"}}'
+        json_str = '{"prompt": "Test prompt", "template_name": "rag_answer"}'
 
         config = PromptConfig.model_validate_json(json_str)
 
         assert config.prompt == "Test prompt"
-        assert config.template_name == TemplatePromptName.RAG_ANSWER_PROMPT
+        assert config.template_name == "rag_answer"
 
     def test_equality(self):
         """Test PromptConfig equality"""
-        config1 = PromptConfig(
-            prompt="Test prompt", template_name=TemplatePromptName.RAG_ANSWER_PROMPT
-        )
+        config1 = PromptConfig(prompt="Test prompt", template_name="rag_answer")
 
-        config2 = PromptConfig(
-            prompt="Test prompt", template_name=TemplatePromptName.RAG_ANSWER_PROMPT
-        )
+        config2 = PromptConfig(prompt="Test prompt", template_name="rag_answer")
 
         config3 = PromptConfig(
             prompt="Different prompt",
-            template_name=TemplatePromptName.RAG_ANSWER_PROMPT,
+            template_name="rag_answer",
         )
 
         assert config1 == config2
@@ -171,9 +167,7 @@ class TestPromptConfig:
 
     def test_copy(self):
         """Test PromptConfig copying"""
-        original = PromptConfig(
-            prompt="Original prompt", template_name=TemplatePromptName.RAG_ANSWER_PROMPT
-        )
+        original = PromptConfig(prompt="Original prompt", template_name="rag_answer")
 
         # Test shallow copy
         copied = original.model_copy()
@@ -188,12 +182,10 @@ class TestPromptConfig:
         config = PromptConfig(prompt="Original prompt")
 
         # Update with new values
-        updated = config.model_copy(
-            update={"template_name": TemplatePromptName.RAG_ANSWER_PROMPT}
-        )
+        updated = config.model_copy(update={"template_name": "rag_answer"})
 
         assert updated.prompt == "Original prompt"
-        assert updated.template_name == TemplatePromptName.RAG_ANSWER_PROMPT
+        assert updated.template_name == "rag_answer"
 
         # Original should remain unchanged
         assert config.template_name is None
@@ -213,6 +205,7 @@ class TestPromptConfig:
         config = PromptConfig(prompt=long_prompt)
 
         assert config.prompt == long_prompt
+        assert config.prompt is not None
         assert len(config.prompt) > 10000
 
     def test_inheritance_from_base_config(self):

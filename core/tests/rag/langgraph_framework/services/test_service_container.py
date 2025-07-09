@@ -401,7 +401,7 @@ class TestServiceContainer:
             def __init__(self):
                 self.created_services = []
 
-            def create(self, config=None):
+            def create(self, config=None, runtime_context=None):
                 service = MockServiceWithCleanup()
                 self.created_services.append(service)
                 return service

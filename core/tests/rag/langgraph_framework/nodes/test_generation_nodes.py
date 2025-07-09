@@ -37,11 +37,32 @@ class TestGenerateRagNode:
         """Create a GenerateRagNode instance."""
         return GenerateRagNode()
 
+    def create_mock_configs(self):
+        """Create mock config objects for testing."""
+        from quivr_core.rag.entities.config import WorkflowConfig, NodeConfig
+        from quivr_core.rag.entities.prompt import PromptConfig
+
+        # Create actual config instances instead of mocks
+        mock_node_config = NodeConfig(name="generate_rag", edges=[])
+        mock_node_config.tools_config = None
+
+        mock_workflow_config = Mock(spec=WorkflowConfig)
+        mock_workflow_config.get_node_config_by_name.return_value = mock_node_config
+
+        mock_prompt_config = PromptConfig(prompt="Custom prompt")
+
+        mock_llm_config = LLMEndpointConfig(max_context_tokens=8000)
+
+        return mock_workflow_config, mock_prompt_config, mock_llm_config
+
     @pytest.fixture(scope="function")
     def valid_state(self):
         """Create a valid state for testing."""
         state = create_sample_agent_state()
         state["tasks"] = create_sample_user_tasks()
+        state["workspace_id"] = (
+            "test-workspace-id"  # Add workspace_id for Zendesk tests
+        )
         return state
 
     @pytest.fixture(scope="function")
@@ -49,11 +70,22 @@ class TestGenerateRagNode:
         """Create mock LLM service."""
         mock_service = Mock(spec=LLMService)
         mock_service.count_tokens.return_value = 100
-        mock_service.bind_tools.return_value = mock_service  # Return self for chaining
+        mock_service.bind_tools_to_llm.return_value = (
+            mock_service  # Return self for chaining
+        )
         mock_service.get_base_llm.return_value = (
             mock_service  # Return self for chaining
         )
         mock_service.invoke.return_value = "Generated response"
+        mock_service.invoke_for_node.return_value = {
+            "response": "Generated response",
+            "tool_calls_summary": None,
+            "success": True,
+            "tools_used": 0,
+            "structured_output": False,
+            "function_calling_supported": False,
+        }
+        mock_service.set_tool_service.return_value = None
         return mock_service
 
     def test_node_name(self, generate_rag_node):
@@ -97,6 +129,11 @@ class TestGenerateRagNode:
         """Test basic execution."""
         config = Mock()
 
+        # Mock config objects
+        mock_workflow_config, mock_prompt_config, mock_llm_config = (
+            self.create_mock_configs()
+        )
+
         with patch("quivr_core.rag.prompt.registry.get_prompt") as mock_get_prompt:
             # Mock prompt template
             mock_template = Mock()
@@ -105,6 +142,14 @@ class TestGenerateRagNode:
 
             with patch.object(
                 generate_rag_node, "get_service", return_value=mock_llm_service
+            ), patch.object(
+                generate_rag_node,
+                "get_config",
+                side_effect=lambda config_type, config=None: mock_workflow_config
+                if config_type.__name__ == "WorkflowConfig"
+                else mock_prompt_config
+                if config_type.__name__ == "PromptConfig"
+                else mock_llm_config,
             ):
                 result = await generate_rag_node.execute(valid_state, config)
 
@@ -119,6 +164,11 @@ class TestGenerateRagNode:
         valid_state["documents"] = create_sample_documents()
         config = Mock()
 
+        # Mock config objects
+        mock_workflow_config, mock_prompt_config, mock_llm_config = (
+            self.create_mock_configs()
+        )
+
         with patch("quivr_core.rag.prompt.registry.get_prompt") as mock_get_prompt:
             mock_template = Mock()
             mock_template.format.return_value = "Formatted RAG prompt with docs"
@@ -126,6 +176,14 @@ class TestGenerateRagNode:
 
             with patch.object(
                 generate_rag_node, "get_service", return_value=mock_llm_service
+            ), patch.object(
+                generate_rag_node,
+                "get_config",
+                side_effect=lambda config_type, config=None: mock_workflow_config
+                if config_type.__name__ == "WorkflowConfig"
+                else mock_prompt_config
+                if config_type.__name__ == "PromptConfig"
+                else mock_llm_config,
             ):
                 result = await generate_rag_node.execute(valid_state, config)
 
@@ -143,6 +201,12 @@ class TestGenerateRagNode:
         config = Mock()
         config.prompt = prompt_config
 
+        # Create mock configs
+        mock_workflow_config, mock_prompt_config, mock_llm_config = (
+            self.create_mock_configs()
+        )
+        mock_prompt_config = prompt_config  # Use the custom prompt config
+
         with patch("quivr_core.rag.prompt.registry.get_prompt") as mock_get_prompt:
             mock_template = Mock()
             mock_template.format.return_value = "Custom formatted prompt"
@@ -150,6 +214,14 @@ class TestGenerateRagNode:
 
             with patch.object(
                 generate_rag_node, "get_service", return_value=mock_llm_service
+            ), patch.object(
+                generate_rag_node,
+                "get_config",
+                side_effect=lambda config_type, config=None: mock_workflow_config
+                if config_type.__name__ == "WorkflowConfig"
+                else mock_prompt_config
+                if config_type.__name__ == "PromptConfig"
+                else mock_llm_config,
             ):
                 result = await generate_rag_node.execute(valid_state, config)
 
@@ -169,6 +241,9 @@ class TestGenerateChatLlmNode:
         """Create a valid state for testing."""
         state = create_sample_agent_state()
         state["tasks"] = create_sample_user_tasks()
+        state["workspace_id"] = (
+            "test-workspace-id"  # Add workspace_id for Zendesk tests
+        )
         return state
 
     @pytest.fixture(scope="function")
@@ -176,11 +251,22 @@ class TestGenerateChatLlmNode:
         """Create mock LLM service."""
         mock_service = Mock(spec=LLMService)
         mock_service.count_tokens.return_value = 50
-        mock_service.bind_tools.return_value = mock_service  # Return self for chaining
+        mock_service.bind_tools_to_llm.return_value = (
+            mock_service  # Return self for chaining
+        )
         mock_service.get_base_llm.return_value = (
             mock_service  # Return self for chaining
         )
         mock_service.invoke.return_value = "Chat response"
+        mock_service.invoke_for_node.return_value = {
+            "response": "Chat response",
+            "tool_calls_summary": None,
+            "success": True,
+            "tools_used": 0,
+            "structured_output": False,
+            "function_calling_supported": False,
+        }
+        mock_service.set_tool_service.return_value = None
         return mock_service
 
     def test_node_name(self, generate_chat_llm_node):
@@ -214,6 +300,19 @@ class TestGenerateChatLlmNode:
         """Test basic chat LLM execution."""
         config = Mock()
 
+        # Create mock configs for chat node
+        from quivr_core.rag.entities.config import WorkflowConfig, NodeConfig
+        from quivr_core.rag.entities.prompt import PromptConfig
+
+        mock_node_config = NodeConfig(name="generate_chat_llm", edges=[])
+        mock_node_config.tools_config = None
+
+        mock_workflow_config = Mock(spec=WorkflowConfig)
+        mock_workflow_config.get_node_config_by_name.return_value = mock_node_config
+
+        mock_prompt_config = PromptConfig(prompt="Custom prompt")
+        mock_llm_config = LLMEndpointConfig(max_context_tokens=8000)
+
         with patch("quivr_core.rag.prompt.registry.get_prompt") as mock_get_prompt:
             mock_template = Mock()
             mock_template.format.return_value = "Formatted chat prompt"
@@ -221,6 +320,14 @@ class TestGenerateChatLlmNode:
 
             with patch.object(
                 generate_chat_llm_node, "get_service", return_value=mock_llm_service
+            ), patch.object(
+                generate_chat_llm_node,
+                "get_config",
+                side_effect=lambda config_type, config=None: mock_workflow_config
+                if config_type.__name__ == "WorkflowConfig"
+                else mock_prompt_config
+                if config_type.__name__ == "PromptConfig"
+                else mock_llm_config,
             ):
                 result = await generate_chat_llm_node.execute(valid_state, config)
 
@@ -235,6 +342,19 @@ class TestGenerateChatLlmNode:
         # Chat LLM should work without documents
         config = Mock()
 
+        # Create mock configs for chat node
+        from quivr_core.rag.entities.config import WorkflowConfig, NodeConfig
+        from quivr_core.rag.entities.prompt import PromptConfig
+
+        mock_node_config = NodeConfig(name="generate_chat_llm", edges=[])
+        mock_node_config.tools_config = None
+
+        mock_workflow_config = Mock(spec=WorkflowConfig)
+        mock_workflow_config.get_node_config_by_name.return_value = mock_node_config
+
+        mock_prompt_config = PromptConfig(prompt="Custom prompt")
+        mock_llm_config = LLMEndpointConfig(max_context_tokens=8000)
+
         with patch("quivr_core.rag.prompt.registry.get_prompt") as mock_get_prompt:
             mock_template = Mock()
             mock_template.format.return_value = "Chat prompt without docs"
@@ -242,6 +362,14 @@ class TestGenerateChatLlmNode:
 
             with patch.object(
                 generate_chat_llm_node, "get_service", return_value=mock_llm_service
+            ), patch.object(
+                generate_chat_llm_node,
+                "get_config",
+                side_effect=lambda config_type, config=None: mock_workflow_config
+                if config_type.__name__ == "WorkflowConfig"
+                else mock_prompt_config
+                if config_type.__name__ == "PromptConfig"
+                else mock_llm_config,
             ):
                 result = await generate_chat_llm_node.execute(valid_state, config)
 
@@ -261,6 +389,9 @@ class TestGenerateZendeskRagNode:
         """Create a valid state for testing."""
         state = create_sample_agent_state()
         state["tasks"] = create_sample_user_tasks()
+        state["workspace_id"] = (
+            "test-workspace-id"  # Add workspace_id for Zendesk tests
+        )
         return state
 
     @pytest.fixture(scope="function")
@@ -268,11 +399,22 @@ class TestGenerateZendeskRagNode:
         """Create mock LLM service."""
         mock_service = Mock(spec=LLMService)
         mock_service.count_tokens.return_value = 150
-        mock_service.bind_tools.return_value = mock_service  # Return self for chaining
+        mock_service.bind_tools_to_llm.return_value = (
+            mock_service  # Return self for chaining
+        )
         mock_service.get_base_llm.return_value = (
             mock_service  # Return self for chaining
         )
         mock_service.invoke.return_value = "Zendesk response"
+        mock_service.invoke_for_node.return_value = {
+            "response": "Zendesk response",
+            "tool_calls_summary": None,
+            "success": True,
+            "tools_used": 0,
+            "structured_output": False,
+            "function_calling_supported": False,
+        }
+        mock_service.set_tool_service.return_value = None
         return mock_service
 
     def test_node_name(self, generate_zendesk_rag_node):
@@ -291,11 +433,11 @@ class TestGenerateZendeskRagNode:
             generate_zendesk_rag_node.validate_input_state(state)
 
     def test_validate_input_state_missing_tasks(self, generate_zendesk_rag_node):
-        """Test input validation with missing tasks."""
+        """Test input validation with missing tasks - should not raise error for Zendesk node."""
         state = {"messages": [HumanMessage(content="Hello")]}
 
-        with pytest.raises(NodeValidationError, match="requires 'tasks' attribute"):
-            generate_zendesk_rag_node.validate_input_state(state)
+        # Zendesk RAG node doesn't require tasks to be present
+        generate_zendesk_rag_node.validate_input_state(state)
 
     @pytest.mark.asyncio(loop_scope="session")
     async def test_execute_basic(
@@ -304,6 +446,19 @@ class TestGenerateZendeskRagNode:
         """Test basic Zendesk RAG execution."""
         config = Mock()
 
+        # Create mock configs for Zendesk node
+        from quivr_core.rag.entities.config import WorkflowConfig, NodeConfig
+        from quivr_core.rag.entities.prompt import PromptConfig
+
+        mock_node_config = NodeConfig(name="generate_zendesk_rag", edges=[])
+        mock_node_config.tools_config = None
+
+        mock_workflow_config = Mock(spec=WorkflowConfig)
+        mock_workflow_config.get_node_config_by_name.return_value = mock_node_config
+
+        mock_prompt_config = PromptConfig(prompt="Custom prompt")
+        mock_llm_config = LLMEndpointConfig(max_context_tokens=8000)
+
         with patch("quivr_core.rag.prompt.registry.get_prompt") as mock_get_prompt:
             mock_template = Mock()
             mock_template.format.return_value = "Formatted Zendesk prompt"
@@ -311,6 +466,14 @@ class TestGenerateZendeskRagNode:
 
             with patch.object(
                 generate_zendesk_rag_node, "get_service", return_value=mock_llm_service
+            ), patch.object(
+                generate_zendesk_rag_node,
+                "get_config",
+                side_effect=lambda config_type, config=None: mock_workflow_config
+                if config_type.__name__ == "WorkflowConfig"
+                else mock_prompt_config
+                if config_type.__name__ == "PromptConfig"
+                else mock_llm_config,
             ):
                 result = await generate_zendesk_rag_node.execute(valid_state, config)
 
@@ -336,6 +499,19 @@ class TestGenerateZendeskRagNode:
         valid_state["documents"] = documents
         config = Mock()
 
+        # Create mock configs for Zendesk node
+        from quivr_core.rag.entities.config import WorkflowConfig, NodeConfig
+        from quivr_core.rag.entities.prompt import PromptConfig
+
+        mock_node_config = NodeConfig(name="generate_zendesk_rag", edges=[])
+        mock_node_config.tools_config = None
+
+        mock_workflow_config = Mock(spec=WorkflowConfig)
+        mock_workflow_config.get_node_config_by_name.return_value = mock_node_config
+
+        mock_prompt_config = PromptConfig(prompt="Custom prompt")
+        mock_llm_config = LLMEndpointConfig(max_context_tokens=8000)
+
         with patch("quivr_core.rag.prompt.registry.get_prompt") as mock_get_prompt:
             mock_template = Mock()
             mock_template.format.return_value = "Zendesk prompt with metadata"
@@ -343,6 +519,14 @@ class TestGenerateZendeskRagNode:
 
             with patch.object(
                 generate_zendesk_rag_node, "get_service", return_value=mock_llm_service
+            ), patch.object(
+                generate_zendesk_rag_node,
+                "get_config",
+                side_effect=lambda config_type, config=None: mock_workflow_config
+                if config_type.__name__ == "WorkflowConfig"
+                else mock_prompt_config
+                if config_type.__name__ == "PromptConfig"
+                else mock_llm_config,
             ):
                 result = await generate_zendesk_rag_node.execute(valid_state, config)
 
@@ -399,6 +583,9 @@ class TestGenerationNodesIntegration:
         state = create_sample_agent_state()
         state["tasks"] = create_sample_user_tasks()
         state["documents"] = create_sample_documents()
+        state["workspace_id"] = (
+            "test-workspace-id"  # Add workspace_id for Zendesk tests
+        )
 
         nodes = [GenerateRagNode(), GenerateChatLlmNode(), GenerateZendeskRagNode()]
 
@@ -410,14 +597,38 @@ class TestGenerationNodesIntegration:
             with patch.object(node, "get_service") as mock_get_service:
                 mock_service = Mock(spec=LLMService)
                 mock_service.count_tokens.return_value = 100
-                mock_service.bind_tools.return_value = (
+                mock_service.bind_tools_to_llm.return_value = (
                     mock_service  # Return self for chaining
                 )
                 mock_service.get_base_llm.return_value = (
                     mock_service  # Return self for chaining
                 )
                 mock_service.invoke.return_value = f"Response from {node.NODE_NAME}"
+                mock_service.invoke_for_node.return_value = {
+                    "response": f"Response from {node.NODE_NAME}",
+                    "tool_calls_summary": None,
+                    "success": True,
+                    "tools_used": 0,
+                    "structured_output": False,
+                    "function_calling_supported": False,
+                }
+                mock_service.set_tool_service.return_value = None
                 mock_get_service.return_value = mock_service
+
+                # Create mock configs for the node
+                from quivr_core.rag.entities.config import WorkflowConfig, NodeConfig
+                from quivr_core.rag.entities.prompt import PromptConfig
+
+                mock_node_config = NodeConfig(name=node.NODE_NAME, edges=[])
+                mock_node_config.tools_config = None
+
+                mock_workflow_config = Mock(spec=WorkflowConfig)
+                mock_workflow_config.get_node_config_by_name.return_value = (
+                    mock_node_config
+                )
+
+                mock_prompt_config = PromptConfig(prompt="Custom prompt")
+                mock_llm_config = LLMEndpointConfig(max_context_tokens=8000)
 
                 with patch(
                     "quivr_core.rag.prompt.registry.get_prompt"
@@ -426,10 +637,20 @@ class TestGenerationNodesIntegration:
                     mock_template.format.return_value = f"Prompt for {node.NODE_NAME}"
                     mock_get_prompt.return_value = mock_template
 
-                    result = await node.execute(state, config)
+                    with patch.object(
+                        node,
+                        "get_config",
+                        side_effect=lambda config_type,
+                        config=None: mock_workflow_config
+                        if config_type.__name__ == "WorkflowConfig"
+                        else mock_prompt_config
+                        if config_type.__name__ == "PromptConfig"
+                        else mock_llm_config,
+                    ):
+                        result = await node.execute(state, config)
 
-                    assert "messages" in result
-                    assert isinstance(result["messages"], list)
+                        assert "messages" in result
+                        assert isinstance(result["messages"], list)
 
     def test_prompt_registry_integration(self):
         """Test that generation nodes properly integrate with prompt registry."""

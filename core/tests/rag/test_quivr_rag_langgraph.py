@@ -171,14 +171,14 @@ class TestQuivrQARAGLangGraph:
         mock_service = Mock(spec=LLMService)
         mock_service.supports_function_calling.return_value = True
         mock_service.count_tokens.return_value = 100
-        mock_service.bind_tools.return_value = Mock()
+        mock_service.bind_tools_to_llm.return_value = Mock()
 
         # Mock the invoke method to return an AI message
         mock_llm = Mock()
         mock_llm.invoke.return_value = AIMessage(
             content="This is a test response from the LLM."
         )
-        mock_service.bind_tools.return_value = mock_llm
+        mock_service.bind_tools_to_llm.return_value = mock_llm
 
         return mock_service
 

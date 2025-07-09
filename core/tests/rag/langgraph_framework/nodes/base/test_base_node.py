@@ -161,7 +161,7 @@ class TestBaseNodeServiceInjection:
 
         assert service is mock_service
         mock_container.get_service.assert_called_once_with(
-            MockLLMService, None, use_cache=True
+            MockLLMService, None, None, use_cache=True
         )
 
     def test_get_service_with_config(self):
@@ -176,7 +176,7 @@ class TestBaseNodeServiceInjection:
 
         assert service is mock_service
         mock_container.get_service.assert_called_once_with(
-            MockLLMService, config, use_cache=True
+            MockLLMService, config, None, use_cache=True
         )
 
 

@@ -53,9 +53,11 @@ class MockServiceFactory:
         self.config_type = config_type
         self.create_calls: list[Any] = []
 
-    def create(self, config: Optional[Any] = None) -> Any:
+    def create(
+        self, config: Optional[Any] = None, runtime_context: Optional[dict] = None
+    ) -> Any:
         """Mock service creation."""
-        self.create_calls.append(config)
+        self.create_calls.append((config, runtime_context))
         return self.service_instance
 
     def get_config_type(self) -> Optional[Type]:
