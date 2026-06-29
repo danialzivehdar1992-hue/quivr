@@ -1,0 +1,152 @@
+入力例
+
+例1）Organic を含むチャネルグループの1日ごとのセッションを取得
+
+filter
+{"filter":{"fieldName":"sessionDefaultChannelGroup","stringFilter":{"matchType":"CONTAINS","value":"organic","caseSensitive":false}}}
+yaml
+action>: GetGA4Report
+  provider: ga_*****
+  propertyId: 12345
+  startDate: '2023-03-01'
+  endDate: '2023-03-03'
+  metrics: sessions
+  dimensions: 'date, sessionDefaultChannelGroup'
+  metricFilter: ''
+  dimensionFilter:
+    filter:
+      fieldName: sessionDefaultChannelGroup
+      stringFilter:
+        matchType: CONTAINS
+        value: organic
+        caseSensitive: false
+  pageSize: 1000
+  private: false
+  meta:
+    display:
+      provider:
+        type: chip
+        label: 'Google Analytics (example@example.com)'
+        icon: googleanalytics
+例2） 日本と中国以外の国の1日ごとの新規ユーザ数を取得
+
+filter
+{"notExpression":{"filter":{"fieldName":"country","inListFilter":{"values":["Japan","China"],"caseSensitive":false}}}}
+yaml
+# GA4のレポートを取得
++get_g_a4_report_2:
+  action>: GetGA4Report
+  provider: ga_******
+  propertyId: 12345
+  startDate: '2023-03-01'
+  endDate: '2023-03-03'
+  metrics: newUsers
+  dimensions: 'date, country'
+  metricFilter: ''
+  dimensionFilter:
+    notExpression:
+      filter:
+        fieldName: country
+        inListFilter:
+          values:
+            - Japan
+            - China
+  pageSize: 1000
+  private: false
+  meta:
+    display:
+      provider:
+        type: chip
+        label: 'Google Analytics (example@example.com)'
+        icon: googleanalytics
+例3） 国が日本かつチャネルグループが Organic Search の新規ユーザー数
+
+filter
+{"andGroup":{"expressions":[{"filter":{"fieldName":"sessionDefaultChannelGroup","stringFilter":{"value":"Organic Search"}}},{"filter":{"fieldName":"country","stringFilter":{"value":"Japan"}}}]}}
+yaml
+action>: GetGA4Report
+  provider: ga_*****
+  propertyId: 12345
+  startDate: '2023-03-01'
+  endDate: '2023-03-01'
+  metrics: newUsers
+  dimensions: 'country, sessionDefaultChannelGroup'
+  metricFilter: ''
+  dimensionFilter:
+    andGroup:
+      expressions:
+        - filter:
+            fieldName: sessionDefaultChannelGroup
+            stringFilter:
+              value: 'Organic Search'
+        - filter:
+            fieldName: country
+            stringFilter:
+              value: Japan
+  pageSize: 1000
+  private: false
+  meta:
+    display:
+      provider:
+        type: chip
+        label: 'Google Analytics (example@example.com)'
+        icon: googleanalytics
+例4） イベント名が page_view または first_visit の1日ごとのイベント数を取得
+
+filter
+{"orGroup":{"expressions":[{"filter":{"fieldName":"eventName","stringFilter":{"value":"page_view"}}},{"filter":{"fieldName":"eventName","stringFilter":{"value":"first_visit"}}}]}}
+yaml
+action>: GetGA4Report
+  provider: ga_****
+  propertyId: 12345
+  startDate: '2023-03-01'
+  endDate: '2023-03-03'
+  metrics: eventCount
+  dimensions: eventName
+  metricFilter: ''
+  dimensionFilter:
+    orGroup:
+      expressions:
+        - filter:
+            fieldName: eventName
+            stringFilter:
+              value: page_view
+        - filter:
+            fieldName: eventName
+            stringFilter:
+              value: first_visit
+  pageSize: 1000
+  private: false
+  meta:
+    display:
+      provider:
+        type: chip
+        label: 'Google Analytics (example@example.com)'
+        icon: googleanalytics
+アウトプット
+タイプ	型	概要	例
+JSON	オブジェクト	JSONレスポンス	※使用例のアウトプット参照
+使用例
+action>: GetGA4Report
+  provider: ga_******
+  propertyId: 12345
+  startDate: '2023-03-01'
+  endDate: '2023-03-01'
+  metrics: sessions
+  dimensions: sessionDefaultChannelGroup
+  metricFilter:
+    filter:
+      fieldName: sessions
+      numericFilter:
+        operation: GREATER_THAN_OR_EQUAL
+        value:
+          int64Value: 100
+  dimensionFilter: ''
+  pageSize: 1000
+  private: false
+  meta:
+    display:
+      provider:
+        type: chip
+        label: 'Google Analytics (example@example.com)'
+        icon: googleanalytics
