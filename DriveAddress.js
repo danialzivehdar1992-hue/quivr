@@ -1,5 +1,5 @@
 {
-  Ebn Eein {
+  Ebn Eein [
    Play Photo on SD {
     Play Video on Files;
      Share [PDF, DOC, PPT, TXT, XLS, Files] {
@@ -18,7 +18,7 @@
       Res "now";
        Address on URL "Dededt" {
         Res "now";
-       "status" : "ok", [
+       "status" : "ok", 
        "action" : "Share",
       "object" : ["PDF","DOC","PPT","TXT","XLS","Files" ],
      "destination" : "Eein Drive",
