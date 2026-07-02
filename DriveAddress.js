@@ -3,7 +3,7 @@
    Play Photo on SD {
     Play Video on Files;
      Share [PDF, DOC, PPT, TXT, XLS, FIIES,] {
-     to Eein DriveAddress on URL "Dededt";
+     To Eein DriveAddress on URL "Dededt";
       Address Voices "Dededt";
       Address on ID "Dededt";
       Res "now";
@@ -14,7 +14,7 @@
   Play Video on Veros {
    Res "now" {
     Share XLS "finance.xls"
-     to Eein Drive; 
+     To Eein Drive; 
       Res "now";
        Address on URL "Dededt" {
         Res "now";
